@@ -1,39 +1,61 @@
 package main
 
 import (
+	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"time"
 
-	"github.com/MokatilDev/go-presence/client"
-	"github.com/MokatilDev/go-presence/utils"
+	client "github.com/MokatilDev/go-presence/ipc/client"
+	"github.com/MokatilDev/go-presence/ipc/platform"
+	"github.com/MokatilDev/go-presence/rpc"
+	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 )
 
 func main() {
 	err := godotenv.Load()
-	utils.CheckErr(err)
-
-	c := make(chan os.Signal, 1)
-
-	activity := client.Activity{
-		Type:          client.Playing,
-		StatusDisplay: client.Name,
-		Timestamps: &client.ActivityTimestamps{
-			Start: int(time.Now().Unix()),
-		},
+	if err != nil {
+		log.Fatal("Error loading .env file")
 	}
 
-	client_id := os.Getenv("CLIENT_ID")
+	c := make(chan os.Signal, 1)
+	clientID := os.Getenv("CLIENT_ID")
 
-	err = client.Login(client_id)
-	utils.CheckErr(err)
+	id, err := strconv.Atoi(clientID)
+	if err != nil {
+		log.Fatal("Invalid client id")
+	}
 
-	err = client.SetActivity(activity)
-	utils.CheckErr(err)
+	connection, err := platform.NewUnixConnection(int64(id))
+	client, err := client.NewClientInstance(int64(id), connection)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	err = client.Handshake()
+	if err != nil {
+		log.Println(err)
+	}
+
+	err = client.Update(&rpc.Packet{
+		Cmd: "SET_ACTIVITY",
+		Args: rpc.Args{
+			Pid: os.Getpid(),
+			Activity: &rpc.Activity{
+				Type:          rpc.Playing,
+				StatusDisplay: rpc.Name,
+				Timestamps: &rpc.ActivityTimestamps{
+					Start: int(time.Now().Unix()),
+				},
+			},
+		},
+		Nonce: uuid.New().String(),
+	})
 
 	signal.Notify(c, os.Interrupt)
 	<-c
 
-	client.Logout()
+	client.Close()
 }
