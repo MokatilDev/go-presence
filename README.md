@@ -8,4 +8,4 @@ Create a `.env` file in your root directory and add your application ID:
 CLIENT_ID=your_discord_application_id
 ```
 ### Thanks
-Special thanks to [rich-go](https://github.com/rich-go)!
+Special thanks to [cord.nvim](https://github.com/vyfor/cord.nvim) and [rich-go](https://github.com/rich-go)
